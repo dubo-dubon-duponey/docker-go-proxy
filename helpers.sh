@@ -75,6 +75,7 @@ docker buildx build --pull --platform "$PLATFORMS" --build-arg="FAIL_WHEN_OUTDAT
   --build-arg="BUILD_DESCRIPTION=$DESCRIPTION" \
   --build-arg="APTPROXY=$APTPROXY" \
   --build-arg="GOPROXY=$GOPROXY" \
+  --build-arg="GO111MODULE=${GO111MODULE:-on}" \
   --file "$DOCKERFILE" \
   --tag "$REGISTRY/$VENDOR/$IMAGE_NAME:$IMAGE_TAG" ${CACHE} ${PUSH} "$@" "$root"
 

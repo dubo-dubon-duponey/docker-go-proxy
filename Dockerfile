@@ -53,15 +53,16 @@ USER          root
 RUN           apt-get update -qq          && \
               apt-get install -qq --no-install-recommends \
                 git=1:2.20.1-2+deb10u3 \
-                bzr=2.7.0+bzr6622-15 \
-                git-lfs=2.7.1-1+deb10u1 \
                 mercurial=4.8.2-1+deb10u1 \
-                subversion=1.10.4-1+deb10u1 && \
+                git-lfs=2.7.1-1+deb10u1 && \
               apt-get -qq autoremove      && \
               apt-get -qq clean           && \
               rm -rf /var/lib/apt/lists/* && \
               rm -rf /tmp/*               && \
               rm -rf /var/tmp/*
+
+#                bzr=2.7.0+bzr6622-15 \
+#                subversion=1.10.4-1+deb10u1 && \
 
 # XXX doesn't work?
 # ENV GOROOT=/tmp/go
