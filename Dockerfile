@@ -21,7 +21,6 @@ RUN           arch="${TARGETPLATFORM#*/}"; \
 # Builder custom
 ##########################
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
-# FROM          --platform=$BUILDPLATFORM rebase-builder                                                                   AS builder
 
 # 0.9
 ARG           GIT_REPO=github.com/gomods/athens
@@ -65,7 +64,7 @@ RUN           apt-get update -qq          && \
               rm -rf /var/tmp/*
 
 # XXX doesn't work?
-# GOROOT=/tmp/go
+# ENV GOROOT=/tmp/go
 RUN           ln -s /tmp/go /usr/local/go
 
 USER          dubo-dubon-duponey
