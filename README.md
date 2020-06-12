@@ -36,7 +36,7 @@ This is based on [Athens](https://github.com/gomods/athens).
 docker run -d \
     --volume somewhere:/tmp/athens \
     --env ATHENS_DISK_STORAGE_ROOT=/tmp/athens \
-    --env ATHENS_PORT=3000 \
+    --env ATHENS_PORT=:3000 \
     --env ATHENS_STORAGE_TYPE=disk \
     --publish 3000:3000/tcp \
     --cap-drop ALL \

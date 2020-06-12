@@ -75,11 +75,11 @@ COPY          --from=builder --chown=$BUILD_UID:root /dist .
 ENV           GO111MODULE=on
 ENV           ATHENS_DISK_STORAGE_ROOT=/tmp/athens
 ENV           ATHENS_STORAGE_TYPE=disk
-ENV           ATHENS_PORT=3000
+ENV           ATHENS_PORT=:3000
 
-ENV           HEALTHCHECK_URL="http://127.0.0.1:$ATHENS_PORT/?healthcheck=internal"
+ENV           HEALTHCHECK_URL="http://127.0.0.1:3000/?healthcheck=internal"
 
-EXPOSE        $ATHENS_PORT/tcp
+EXPOSE        3000/tcp
 
 HEALTHCHECK   --interval=120s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
 
