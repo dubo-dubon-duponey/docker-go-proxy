@@ -41,7 +41,7 @@ docker run -d \
     --publish 3000:3000/tcp \
     --cap-drop ALL \
     --read-only \
-    dubodubonduponey/goproxy:v1
+    dubodubonduponey/goproxy
 ```
 
 ## Notes
