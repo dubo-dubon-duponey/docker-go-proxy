@@ -20,6 +20,7 @@ RUN           arch="${TARGETPLATFORM#*/}"; \
 ##########################
 # Builder custom
 ##########################
+# hadolint ignore=DL3006
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
 
 # 0.9
@@ -29,6 +30,7 @@ ARG           GIT_VERSION=ebafaa4488bb5e84e21f0c68673ba0d675b44316
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
+# hadolint ignore=DL4006
 RUN           set -eu; \
               arch=${TARGETPLATFORM#*/}; \
               commit="$(git describe --dirty --always)"; \
