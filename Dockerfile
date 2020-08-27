@@ -13,8 +13,8 @@ ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" \
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
                 -o /dist/boot/bin/http-health ./cmd/http
 
 ##########################
@@ -23,19 +23,16 @@ RUN           arch="${TARGETPLATFORM#*/}"; \
 # hadolint ignore=DL3006
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
 
-# 0.9
+# 0.10
 ARG           GIT_REPO=github.com/gomods/athens
-ARG           GIT_VERSION=ebafaa4488bb5e84e21f0c68673ba0d675b44316
+ARG           GIT_VERSION=408fd74a9c95c019264982f020f6eaf31a1eeabe
 
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
+
 # hadolint ignore=DL4006
-RUN           set -eu; \
-              arch=${TARGETPLATFORM#*/}; \
-              commit="$(git describe --dirty --always)"; \
-              now="$(date +%Y-%m-%dT%T%z | sed -E 's/([0-9]{2})([0-9]{2})$/\1:\2/')"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags="-s -w -X github.com/gomods/athens/pkg/build.version=$commit -X github.com/gomods/athens/pkg/build.buildDate=$now" \
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w -X github.com/gomods/athens/pkg/build.version=$BUILD_VERSION -X github.com/gomods/athens/pkg/build.buildDate=$BUILD_CREATED" \
                 -o /dist/boot/bin/athens-proxy ./cmd/proxy
 
 COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
