@@ -11,5 +11,13 @@ set -o errexit -o errtrace -o functrace -o nounset -o pipefail
 mkdir -p /tmp/go
 [ ! "$ATHENS_DISK_STORAGE_ROOT" ] || mkdir -p "$ATHENS_DISK_STORAGE_ROOT"
 
+# Bonjour the container
+if [ "${MDNS_NAME:-}" ]; then
+  goello-server -name "$MDNS_NAME" -host "$MDNS_HOST" -port "$PORT" -type "$MDNS_TYPE" &
+fi
+
+BASIC_AUTH_USER="${USERNAME:-}"
+BASIC_AUTH_PASS="${PASSWORD:-}"
+
 # Get athens started
 exec athens-proxy -config_file /config/config.toml "$@"
