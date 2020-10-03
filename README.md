@@ -52,7 +52,7 @@ Using any privileged port for athens requires `--cap-add=CAP_NET_BIND_SERVICE` a
 
 Any additional argument will be passed to the athens-proxy binary.
 
-### Prometheus
+### Prometheus
 
 TBD
 
