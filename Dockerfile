@@ -4,7 +4,7 @@ ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
 #######################
 # Extra builder for healthchecker
 #######################
-# hadolint ignore=DL3006
+# hadolint ignore=DL3006,DL3029
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
 
 ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
@@ -13,35 +13,61 @@ ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" \
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
                 -o /dist/boot/bin/http-health ./cmd/http
 
-##########################
-# Builder custom
-##########################
-# hadolint ignore=DL3006
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
+#######################
+# Goello
+#######################
+# hadolint ignore=DL3006,DL3029
+FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-goello
 
-# 0.9
-ARG           GIT_REPO=github.com/gomods/athens
-ARG           GIT_VERSION=ebafaa4488bb5e84e21f0c68673ba0d675b44316
+ARG           GIT_REPO=github.com/dubo-dubon-duponey/goello
+ARG           GIT_VERSION=6f6c96ef8161467ab25be45fe3633a093411fcf2
 
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
 # hadolint ignore=DL4006
-RUN           set -eu; \
-              arch=${TARGETPLATFORM#*/}; \
-              commit="$(git describe --dirty --always)"; \
-              now="$(date +%Y-%m-%dT%T%z | sed -E 's/([0-9]{2})([0-9]{2})$/\1:\2/')"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags="-s -w -X github.com/gomods/athens/pkg/build.version=$commit -X github.com/gomods/athens/pkg/build.buildDate=$now" \
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
+                -o /dist/boot/bin/goello-server ./cmd/server/main.go
+
+
+##########################
+# Builder custom
+##########################
+# hadolint ignore=DL3006,DL3029
+FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-athens
+
+# 0.10
+ARG           GIT_REPO=github.com/gomods/athens
+ARG           GIT_VERSION=408fd74a9c95c019264982f020f6eaf31a1eeabe
+
+WORKDIR       $GOPATH/src/$GIT_REPO
+RUN           git clone git://$GIT_REPO .
+RUN           git checkout $GIT_VERSION
+
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w -X github.com/gomods/athens/pkg/build.version=$BUILD_VERSION -X github.com/gomods/athens/pkg/build.buildDate=$BUILD_CREATED" \
                 -o /dist/boot/bin/athens-proxy ./cmd/proxy
 
-COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
-
 RUN           cp /build/golang/go/bin/go /dist/boot/bin/
-RUN           chmod 555 /dist/boot/bin/*
+
+
+#######################
+# Builder assembly
+#######################
+# hadolint ignore=DL3006
+FROM          $BUILDER_BASE                                                                                             AS builder
+
+COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
+COPY          --from=builder-athens /dist/boot/bin /dist/boot/bin
+COPY          --from=builder-goello /dist/boot/bin /dist/boot/bin
+
+RUN           chmod 555 /dist/boot/bin/*; \
+              epoch="$(date --date "$BUILD_CREATED" +%s)"; \
+              find /dist/boot/bin -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
 
 #######################
 # Running image
@@ -74,10 +100,20 @@ USER          dubo-dubon-duponey
 
 COPY          --from=builder --chown=$BUILD_UID:root /dist .
 
+# mDNS
+ENV           MDNS_NAME="Fancy Registry Service Name"
+ENV           MDNS_HOST="registry"
+ENV           MDNS_TYPE=_goproxy._tcp
+
+# Authentication
+ENV           USERNAME="dubo-dubon-duponey"
+ENV           PASSWORD="plaintextpassword"
+ENV           REALM="My precious goproxy"
+
 ENV           GO111MODULE=on
 ENV           ATHENS_DISK_STORAGE_ROOT=/tmp/athens
 ENV           ATHENS_STORAGE_TYPE=disk
-ENV           ATHENS_PORT=:3000
+ENV           PORT=:3000
 
 ENV           HEALTHCHECK_URL="http://127.0.0.1:3000/?healthcheck=internal"
 
