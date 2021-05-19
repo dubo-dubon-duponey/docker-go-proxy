@@ -116,7 +116,7 @@ Timeout = 300
 # Possible values are memory, disk, mongo, gcp, minio, s3, azureblob, external
 # Defaults to memory
 # Env override: ATHENS_STORAGE_TYPE
-StorageType = "memory"
+StorageType = "disk"
 
 # Certificate and key to make athens serve using https instead of plain text http.
 # Set both to enable.
@@ -127,7 +127,7 @@ StorageType = "memory"
 # Port sets the port the proxy listens on
 # Env override: ATHENS_PORT or PORT
 # The PORT must be a number or a number prefixed by ":"
-Port = ":3000"
+Port = ":42042"
 
 # The endpoint for a package registry in case of a proxy cache miss
 # NOTE: Currently no registries have been implemented
@@ -319,7 +319,7 @@ SingleFlightType = "memory"
     [Storage.Disk]
         # RootPath is the Athens Disk Root folder
         # Env override: ATHENS_DISK_STORAGE_ROOT
-        RootPath = "/path/on/disk"
+        RootPath = "/data"
 
     [Storage.GCP]
         # Required IAM Roles (https://cloud.google.com/storage/docs/access-control/iam-roles):
