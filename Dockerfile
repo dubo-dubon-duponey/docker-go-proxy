@@ -1,12 +1,13 @@
-ARG           BUILDER_BASE=dubodubonduponey/base@sha256:b51f084380bc1bd2b665840317b6f19ccc844ee2fc7e700bf8633d95deba2819
-ARG           RUNTIME_BASE=dubodubonduponey/base@sha256:d28e8eed3e87e8dc5afdd56367d3cf2da12a0003d064b5c62405afbe4725ee99
+ARG           FROM_IMAGE_BUILDER=ghcr.io/dubo-dubon-duponey/base:builder-bullseye-2021-06-01@sha256:addbd9b89d8973df985d2d95e22383961ba7b9c04580ac6a7f406a3a9ec4731e
+ARG           FROM_IMAGE_RUNTIME=ghcr.io/dubo-dubon-duponey/base:runtime-bullseye-2021-06-01@sha256:a2b1b2f69ed376bd6ffc29e2d240e8b9d332e78589adafadb84c73b778e6bc77
 
 #######################
 # Extra builder for healthchecker
 #######################
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
+FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-healthcheck
 
 ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
+ARG           GIT_VERSION=51ebf8c
 ARG           GIT_COMMIT=51ebf8ca3d255e0c846307bf72740f731e6210c3
 ARG           GO_BUILD_SOURCE=./cmd/http
 ARG           GO_BUILD_OUTPUT=http-health
@@ -25,9 +26,10 @@ RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -tr
 #######################
 # Goello
 #######################
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-goello
+FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-goello
 
 ARG           GIT_REPO=github.com/dubo-dubon-duponey/goello
+ARG           GIT_VERSION=3799b60
 ARG           GIT_COMMIT=3799b6035dd5c4d5d1c061259241a9bedda810d6
 ARG           GO_BUILD_SOURCE=./cmd/server
 ARG           GO_BUILD_OUTPUT=goello-server
@@ -46,7 +48,7 @@ RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -tr
 #######################
 # Caddy
 #######################
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-caddy
+FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-caddy
 
 # This is 2.4.0
 ARG           GIT_REPO=github.com/caddyserver/caddy
@@ -69,7 +71,7 @@ RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -tr
 #######################
 # Main builder
 #######################
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-main
+FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-main
 
 ARG           GIT_REPO=github.com/gomods/athens
 ARG           GIT_VERSION=v0.11
@@ -77,6 +79,7 @@ ARG           GIT_COMMIT=c3020955d204693ae22d26344a700ae5ccf4b754
 ARG           GO_BUILD_SOURCE=./cmd/proxy
 ARG           GO_BUILD_OUTPUT=athens-proxy
 ARG           GO_LD_FLAGS="-s -w -X $GIT_REPO/pkg/build.version=$GIT_VERSION -X $GIT_REPO/pkg/build.buildDate=$BUILD_CREATED"
+ARG           GO_TAGS="netgo osusergo"
 
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone --recurse-submodules git://"$GIT_REPO" . && git checkout "$GIT_COMMIT"
@@ -87,18 +90,20 @@ ARG           GOARCH="$TARGETARCH"
 RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -trimpath $(if [ "$CGO_ENABLED" = 1 ]; then printf "%s" "-buildmode pie"; fi) \
                 -ldflags "$GO_LD_FLAGS" -tags "$GO_TAGS" -o /dist/boot/bin/"$GO_BUILD_OUTPUT" "$GO_BUILD_SOURCE"
 
-# Also need the go runtime
-RUN           cp "$GOROOT"/bin/go /dist/boot/bin/
+# XXX Also need the go runtime - ERRRRR how does that work? not the right platform mate!
+# RUN           cp "$GOROOT"/bin/go /dist/boot/bin/
 
 #######################
 # Builder assembly
 #######################
-FROM          $BUILDER_BASE                                                                                             AS builder
+FROM          $FROM_IMAGE_BUILDER                                                                                       AS builder
 
 COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
 COPY          --from=builder-goello /dist/boot/bin /dist/boot/bin
 COPY          --from=builder-caddy /dist/boot/bin /dist/boot/bin
 COPY          --from=builder-main /dist/boot/bin /dist/boot/bin
+# XXX is this going to work?
+RUN           cp "$GOROOT"/bin/go /dist/boot/bin
 
 RUN           chmod 555 /dist/boot/bin/*; \
               epoch="$(date --date "$BUILD_CREATED" +%s)"; \
@@ -107,12 +112,20 @@ RUN           chmod 555 /dist/boot/bin/*; \
 #######################
 # Running image
 #######################
-FROM          $RUNTIME_BASE
+FROM          $FROM_IMAGE_RUNTIME
 
 USER          root
 
 # Do we really need all that shit? who uses subversion these days?
-RUN           apt-get update -qq          && \
+RUN           --mount=type=secret,mode=0444,id=CA,dst=/etc/ssl/certs/ca-certificates.crt \
+              --mount=type=secret,id=CERTIFICATE \
+              --mount=type=secret,id=KEY \
+              --mount=type=secret,id=PASSPHRASE \
+              --mount=type=secret,mode=0444,id=GPG.gpg \
+              --mount=type=secret,id=NETRC \
+              --mount=type=secret,id=APT_SOURCES \
+              --mount=type=secret,id=APT_OPTIONS,dst=/etc/apt/apt.conf.d/dbdbdp.conf \
+              apt-get update -qq && \
               apt-get install -qq --no-install-recommends \
                 git=1:2.20.1-2+deb10u3 \
                 mercurial=4.8.2-1+deb10u1 \
@@ -128,7 +141,7 @@ RUN           apt-get update -qq          && \
 
 # XXX doesn't work?
 # ENV GOROOT=/tmp/go
-RUN           ln -s /tmp/go /usr/local/go
+RUN           ln -s /boot/bin/go /usr/local/go
 
 USER          dubo-dubon-duponey
 
