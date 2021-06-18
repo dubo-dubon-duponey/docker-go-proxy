@@ -127,9 +127,9 @@ RUN           --mount=type=secret,mode=0444,id=CA,dst=/etc/ssl/certs/ca-certific
               --mount=type=secret,id=APT_OPTIONS,dst=/etc/apt/apt.conf.d/dbdbdp.conf \
               apt-get update -qq && \
               apt-get install -qq --no-install-recommends \
-                git=1:2.20.1-2+deb10u3 \
-                mercurial=4.8.2-1+deb10u1 \
-                git-lfs=2.7.1-1+deb10u1 && \
+                git=1:2.30.2-1 \
+                mercurial=5.6.1-4 \
+                git-lfs=2.13.2-1+b2 && \
               apt-get -qq autoremove      && \
               apt-get -qq clean           && \
               rm -rf /var/lib/apt/lists/* && \
