@@ -61,8 +61,15 @@ esac
 mkdir -p /tmp/go
 
 # Careful, it uses the PORT env variable to override its default, so blank it out
-# Also forward log_level
 export PORT=""
+# Forward log_level
 export ATHENS_LOG_LEVEL=${LOG_LEVEL:-warn}
+# Maybe this should be more flexible?
+export ATHENS_INDEX_TYPE="memory"
+# The rest is fine
+export ATHENS_STORAGE_TYPE=disk
+export ATHENS_PORT=":42042"
+export ATHENS_DISK_STORAGE_ROOT=/data
+export ATHENS_GOGOET_DIR=/tmp/go
 
 athens-proxy -config_file /config/athens/main.toml "$@"

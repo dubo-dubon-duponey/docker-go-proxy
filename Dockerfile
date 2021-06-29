@@ -1,5 +1,6 @@
-ARG           FROM_IMAGE_BUILDER=ghcr.io/dubo-dubon-duponey/base:builder-bullseye-2021-06-01@sha256:addbd9b89d8973df985d2d95e22383961ba7b9c04580ac6a7f406a3a9ec4731e
-ARG           FROM_IMAGE_RUNTIME=ghcr.io/dubo-dubon-duponey/base:runtime-bullseye-2021-06-01@sha256:a2b1b2f69ed376bd6ffc29e2d240e8b9d332e78589adafadb84c73b778e6bc77
+ARG           FROM_IMAGE_BUILDER=ghcr.io/dubo-dubon-duponey/base:builder-bullseye-2021-06-01@sha256:e3e3210201f6b63230d111fc0add56d4a7b384c18039bbfed72b7edac7658040
+ARG           FROM_IMAGE_RUNTIME=ghcr.io/dubo-dubon-duponey/base:runtime-bullseye-2021-06-01@sha256:163b9308a142430f6b3d6f37ff84de26943ef9fc0b2c283df4c2c8e5eedadffc
+ARG           FROM_IMAGE_TOOLS=builder-tools-local
 
 #######################
 # Extra builder for healthchecker
@@ -29,8 +30,8 @@ RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -tr
 FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-goello
 
 ARG           GIT_REPO=github.com/dubo-dubon-duponey/goello
-ARG           GIT_VERSION=3799b60
-ARG           GIT_COMMIT=3799b6035dd5c4d5d1c061259241a9bedda810d6
+ARG           GIT_VERSION=7ce1fb5
+ARG           GIT_COMMIT=7ce1fb5d9c739128d2644fbc1968b11efcb96ca2
 ARG           GO_BUILD_SOURCE=./cmd/server
 ARG           GO_BUILD_OUTPUT=goello-server
 ARG           GO_LD_FLAGS="-s -w"
@@ -52,8 +53,8 @@ FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                     
 
 # This is 2.4.0
 ARG           GIT_REPO=github.com/caddyserver/caddy
-ARG           GIT_VERSION=v2.4.0
-ARG           GIT_COMMIT=bc2210247861340c644d9825ac2b2860f8c6e12a
+ARG           GIT_VERSION=v2.4.3
+ARG           GIT_COMMIT=9d4ed3a3236df06e54c80c4f6633b66d68ad3673
 ARG           GO_BUILD_SOURCE=./cmd/caddy
 ARG           GO_BUILD_OUTPUT=caddy
 ARG           GO_LD_FLAGS="-s -w"
@@ -69,12 +70,24 @@ RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -tr
                 -ldflags "$GO_LD_FLAGS" -tags "$GO_TAGS" -o /dist/boot/bin/"$GO_BUILD_OUTPUT" "$GO_BUILD_SOURCE"
 
 #######################
+# Assemble all locally built tools
+#######################
+FROM          $FROM_IMAGE_RUNTIME                                                                                       AS builder-tools-local
+
+COPY          --from=builder-goello       /dist/boot/bin  /boot/bin
+COPY          --from=builder-caddy        /dist/boot/bin  /boot/bin
+COPY          --from=builder-healthcheck  /dist/boot/bin  /boot/bin
+
+# Diversion so we can easily switch from locally built to from the tools image
+FROM          $FROM_IMAGE_TOOLS                                                                                         AS builder-tools
+
+#######################
 # Main builder
 #######################
 FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-main
 
 ARG           GIT_REPO=github.com/gomods/athens
-ARG           GIT_VERSION=v0.11
+ARG           GIT_VERSION=v0.11.0
 ARG           GIT_COMMIT=c3020955d204693ae22d26344a700ae5ccf4b754
 ARG           GO_BUILD_SOURCE=./cmd/proxy
 ARG           GO_BUILD_OUTPUT=athens-proxy
@@ -96,18 +109,20 @@ RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -tr
 #######################
 # Builder assembly
 #######################
-FROM          $FROM_IMAGE_BUILDER                                                                                       AS builder
+FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder
 
-COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
-COPY          --from=builder-goello /dist/boot/bin /dist/boot/bin
-COPY          --from=builder-caddy /dist/boot/bin /dist/boot/bin
 COPY          --from=builder-main /dist/boot/bin /dist/boot/bin
-# XXX is this going to work?
-RUN           cp "$GOROOT"/bin/go /dist/boot/bin
+
+COPY          --from=builder-tools /boot/bin/goello-server  /dist/boot/bin
+COPY          --from=builder-tools /boot/bin/caddy          /dist/boot/bin
+COPY          --from=builder-tools /boot/bin/http-health    /dist/boot/bin
 
 RUN           chmod 555 /dist/boot/bin/*; \
               epoch="$(date --date "$BUILD_CREATED" +%s)"; \
               find /dist/boot/bin -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
+
+# XXX is this going to work?
+RUN           cp -R "$GOROOT" /dist/boot/bin/go
 
 #######################
 # Running image
@@ -141,7 +156,9 @@ RUN           --mount=type=secret,mode=0444,id=CA,dst=/etc/ssl/certs/ca-certific
 
 # XXX doesn't work?
 # ENV GOROOT=/tmp/go
-RUN           ln -s /boot/bin/go /usr/local/go
+#RUN           ln -s /boot/bin/go /usr/local/go
+ENV GOROOT=/boot/bin/go
+ENV PATH=$GOROOT/bin:$PATH
 
 USER          dubo-dubon-duponey
 

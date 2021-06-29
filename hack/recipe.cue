@@ -97,12 +97,13 @@ cakes: {
   image: scullery.#Cake & {
 		recipe: {
 			input: {
-				from: types.#Image & {#fromString: *"scratch" | string @tag(from_image, type=string)}
+				from: types.#Image & {#fromString: *"ghcr.io/dubo-dubon-duponey/debian:bullseye-2021-06-01" | string @tag(from_image, type=string)}
 			}
 			process: {
 				platforms: injector._platforms
 				args: {
 					FROM_IMAGE_BUILDER: "ghcr.io/dubo-dubon-duponey/base:builder-bullseye-2021-06-01"
+					FROM_IMAGE_TOOLS: "ghcr.io/dubo-dubon-duponey/tools:linux-bullseye-2021-06-01"
 					FROM_IMAGE_RUNTIME: recipe.input.from.toString
 				}
 			}
