@@ -1,164 +1,122 @@
-ARG           FROM_IMAGE_BUILDER=ghcr.io/dubo-dubon-duponey/base:builder-bullseye-2021-06-01@sha256:e3e3210201f6b63230d111fc0add56d4a7b384c18039bbfed72b7edac7658040
-ARG           FROM_IMAGE_RUNTIME=ghcr.io/dubo-dubon-duponey/base:runtime-bullseye-2021-06-01@sha256:163b9308a142430f6b3d6f37ff84de26943ef9fc0b2c283df4c2c8e5eedadffc
-ARG           FROM_IMAGE_TOOLS=builder-tools-local
+ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
+
+ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-07-01@sha256:dbe45d04091f027b371e1bd4ea994f095a8b2ebbdd89357c56638fb678218151
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-07-01@sha256:63060b5109c4d8be7a8b4f97e3bb7431781c07b3b46263e372ab37fb8aae7583
+ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-07-01@sha256:188493744d1b858e0d99efc250b8b78852ddb3fe50eb63d46f41ee20680c14eb
+
+FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
+
+# one time warcrime... XXX the reason for this is that our builder image is not portable
+FROM          $FROM_REGISTRY/base:golang-bullseye-2021-07-01                                                            AS builder-go
+RUN           mkdir -p /dist/boot/bin; cp -R "$GOROOT" /dist/boot/bin/go
 
 #######################
-# Extra builder for healthchecker
+# Fetcher
 #######################
-FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-healthcheck
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS fetcher-main
 
-ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
-ARG           GIT_VERSION=51ebf8c
-ARG           GIT_COMMIT=51ebf8ca3d255e0c846307bf72740f731e6210c3
-ARG           GO_BUILD_SOURCE=./cmd/http
-ARG           GO_BUILD_OUTPUT=http-health
-ARG           GO_LD_FLAGS="-s -w"
-ARG           GO_TAGS="netgo osusergo"
+ENV           GIT_REPO=github.com/gomods/athens
+ENV           GIT_VERSION=v0.11.0
+ENV           GIT_COMMIT=c3020955d204693ae22d26344a700ae5ccf4b754
 
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone --recurse-submodules git://"$GIT_REPO" . && git checkout "$GIT_COMMIT"
-ARG           GOOS="$TARGETOS"
-ARG           GOARCH="$TARGETARCH"
+ENV           WITH_BUILD_SOURCE="./cmd/proxy"
+ENV           WITH_BUILD_OUTPUT="athens-proxy"
+ENV           WITH_LDFLAGS="-X $GIT_REPO/pkg/build.version=$GIT_VERSION -X $GIT_REPO/pkg/build.buildDate=$BUILD_CREATED"
 
-# hadolint ignore=SC2046
-RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -trimpath $(if [ "$CGO_ENABLED" = 1 ]; then printf "%s" "-buildmode pie"; fi) \
-                -ldflags "$GO_LD_FLAGS" -tags "$GO_TAGS" -o /dist/boot/bin/"$GO_BUILD_OUTPUT" "$GO_BUILD_SOURCE"
-
-#######################
-# Goello
-#######################
-FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-goello
-
-ARG           GIT_REPO=github.com/dubo-dubon-duponey/goello
-ARG           GIT_VERSION=7ce1fb5
-ARG           GIT_COMMIT=7ce1fb5d9c739128d2644fbc1968b11efcb96ca2
-ARG           GO_BUILD_SOURCE=./cmd/server
-ARG           GO_BUILD_OUTPUT=goello-server
-ARG           GO_LD_FLAGS="-s -w"
-ARG           GO_TAGS="netgo osusergo"
-
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone --recurse-submodules git://"$GIT_REPO" . && git checkout "$GIT_COMMIT"
-ARG           GOOS="$TARGETOS"
-ARG           GOARCH="$TARGETARCH"
-
-# hadolint ignore=SC2046
-RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -trimpath $(if [ "$CGO_ENABLED" = 1 ]; then printf "%s" "-buildmode pie"; fi) \
-                -ldflags "$GO_LD_FLAGS" -tags "$GO_TAGS" -o /dist/boot/bin/"$GO_BUILD_OUTPUT" "$GO_BUILD_SOURCE"
-
-#######################
-# Caddy
-#######################
-FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-caddy
-
-# This is 2.4.0
-ARG           GIT_REPO=github.com/caddyserver/caddy
-ARG           GIT_VERSION=v2.4.3
-ARG           GIT_COMMIT=9d4ed3a3236df06e54c80c4f6633b66d68ad3673
-ARG           GO_BUILD_SOURCE=./cmd/caddy
-ARG           GO_BUILD_OUTPUT=caddy
-ARG           GO_LD_FLAGS="-s -w"
-ARG           GO_TAGS="netgo osusergo"
-
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone --recurse-submodules git://"$GIT_REPO" . && git checkout "$GIT_COMMIT"
-ARG           GOOS="$TARGETOS"
-ARG           GOARCH="$TARGETARCH"
-
-# hadolint ignore=SC2046
-RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -trimpath $(if [ "$CGO_ENABLED" = 1 ]; then printf "%s" "-buildmode pie"; fi) \
-                -ldflags "$GO_LD_FLAGS" -tags "$GO_TAGS" -o /dist/boot/bin/"$GO_BUILD_OUTPUT" "$GO_BUILD_SOURCE"
-
-#######################
-# Assemble all locally built tools
-#######################
-FROM          $FROM_IMAGE_RUNTIME                                                                                       AS builder-tools-local
-
-COPY          --from=builder-goello       /dist/boot/bin  /boot/bin
-COPY          --from=builder-caddy        /dist/boot/bin  /boot/bin
-COPY          --from=builder-healthcheck  /dist/boot/bin  /boot/bin
-
-# Diversion so we can easily switch from locally built to from the tools image
-FROM          $FROM_IMAGE_TOOLS                                                                                         AS builder-tools
+RUN           git clone --recurse-submodules git://"$GIT_REPO" .
+RUN           git checkout "$GIT_COMMIT"
+RUN           --mount=type=secret,id=CA \
+              --mount=type=secret,id=NETRC \
+              [[ "${GOFLAGS:-}" == *-mod=vendor* ]] || go mod download
 
 #######################
 # Main builder
 #######################
-FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder-main
+FROM          --platform=$BUILDPLATFORM fetcher-main                                                                    AS builder-main
 
-ARG           GIT_REPO=github.com/gomods/athens
-ARG           GIT_VERSION=v0.11.0
-ARG           GIT_COMMIT=c3020955d204693ae22d26344a700ae5ccf4b754
-ARG           GO_BUILD_SOURCE=./cmd/proxy
-ARG           GO_BUILD_OUTPUT=athens-proxy
-ARG           GO_LD_FLAGS="-s -w -X $GIT_REPO/pkg/build.version=$GIT_VERSION -X $GIT_REPO/pkg/build.buildDate=$BUILD_CREATED"
-ARG           GO_TAGS="netgo osusergo"
+ARG           TARGETARCH
+ARG           TARGETOS
+ARG           TARGETVARIANT
+ENV           GOOS=$TARGETOS
+ENV           GOARCH=$TARGETARCH
 
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone --recurse-submodules git://"$GIT_REPO" . && git checkout "$GIT_COMMIT"
-ARG           GOOS="$TARGETOS"
-ARG           GOARCH="$TARGETARCH"
+ENV           CGO_CFLAGS="${CFLAGS:-} ${ENABLE_PIE:+-fPIE}"
+ENV           GOFLAGS="-trimpath ${ENABLE_PIE:+-buildmode=pie} ${GOFLAGS:-}"
 
-# hadolint ignore=SC2046
-RUN           env GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)" go build -trimpath $(if [ "$CGO_ENABLED" = 1 ]; then printf "%s" "-buildmode pie"; fi) \
-                -ldflags "$GO_LD_FLAGS" -tags "$GO_TAGS" -o /dist/boot/bin/"$GO_BUILD_OUTPUT" "$GO_BUILD_SOURCE"
+# Important cases being handled:
+# - cannot compile statically with PIE but on amd64 and arm64
+# - cannot compile fully statically with NETCGO
+RUN           export GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)"; \
+              [ "${CGO_ENABLED:-}" != 1 ] || { \
+                eval "$(dpkg-architecture -A "$(echo "$TARGETARCH$TARGETVARIANT" | sed -e "s/armv6/armel/" -e "s/armv7/armhf/" -e "s/ppc64le/ppc64el/" -e "s/386/i386/")")"; \
+                export PKG_CONFIG="${DEB_TARGET_GNU_TYPE}-pkg-config"; \
+                export AR="${DEB_TARGET_GNU_TYPE}-ar"; \
+                export CC="${DEB_TARGET_GNU_TYPE}-gcc"; \
+                export CXX="${DEB_TARGET_GNU_TYPE}-g++"; \
+                [ ! "${ENABLE_STATIC:-}" ] || { \
+                  [ ! "${WITH_CGO_NET:-}" ] || { \
+                    ENABLE_STATIC=; \
+                    LDFLAGS="${LDFLAGS:-} -static-libgcc -static-libstdc++"; \
+                  }; \
+                  [ "$GOARCH" == "amd64" ] || [ "$GOARCH" == "arm64" ] || [ "${ENABLE_PIE:-}" != true ] || ENABLE_STATIC=; \
+                }; \
+                WITH_LDFLAGS="${WITH_LDFLAGS:-} -linkmode=external -extld="$CC" -extldflags \"${LDFLAGS:-} ${ENABLE_STATIC:+-static}${ENABLE_PIE:+-pie}\""; \
+                WITH_TAGS="${WITH_TAGS:-} cgo ${ENABLE_STATIC:+static static_build}"; \
+              }; \
+              go build -ldflags "-s -w -v ${WITH_LDFLAGS:-}" -tags "${WITH_TAGS:-} net${WITH_CGO_NET:+c}go osusergo" -o /dist/boot/bin/"$WITH_BUILD_OUTPUT" "$WITH_BUILD_SOURCE"
 
-# XXX Also need the go runtime - ERRRRR how does that work? not the right platform mate!
-# RUN           cp "$GOROOT"/bin/go /dist/boot/bin/
 
 #######################
 # Builder assembly
 #######################
-FROM          --platform=$BUILDPLATFORM $FROM_IMAGE_BUILDER                                                             AS builder
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS builder
 
-COPY          --from=builder-main /dist/boot/bin /dist/boot/bin
+COPY          --from=builder-main   /dist/boot/bin /dist/boot/bin
+COPY          --from=builder-go     /dist/boot/bin /dist/boot/bin
 
-COPY          --from=builder-tools /boot/bin/goello-server  /dist/boot/bin
-COPY          --from=builder-tools /boot/bin/caddy          /dist/boot/bin
-COPY          --from=builder-tools /boot/bin/http-health    /dist/boot/bin
+COPY          --from=builder-tools  /boot/bin/goello-server  /dist/boot/bin
+COPY          --from=builder-tools  /boot/bin/caddy          /dist/boot/bin
+COPY          --from=builder-tools  /boot/bin/http-health    /dist/boot/bin
 
 RUN           chmod 555 /dist/boot/bin/*; \
               epoch="$(date --date "$BUILD_CREATED" +%s)"; \
               find /dist/boot/bin -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
 
-# XXX is this going to work?
-RUN           cp -R "$GOROOT" /dist/boot/bin/go
-
 #######################
 # Running image
 #######################
-FROM          $FROM_IMAGE_RUNTIME
+FROM          $FROM_REGISTRY/$FROM_IMAGE_RUNTIME
 
 USER          root
 
 # Do we really need all that shit? who uses subversion these days?
-RUN           --mount=type=secret,mode=0444,id=CA,dst=/etc/ssl/certs/ca-certificates.crt \
-              --mount=type=secret,id=CERTIFICATE \
-              --mount=type=secret,id=KEY \
-              --mount=type=secret,id=PASSPHRASE \
-              --mount=type=secret,mode=0444,id=GPG.gpg \
+RUN           --mount=type=secret,uid=100,id=CA \
+              --mount=type=secret,uid=100,id=CERTIFICATE \
+              --mount=type=secret,uid=100,id=KEY \
+              --mount=type=secret,uid=100,id=GPG.gpg \
               --mount=type=secret,id=NETRC \
               --mount=type=secret,id=APT_SOURCES \
-              --mount=type=secret,id=APT_OPTIONS,dst=/etc/apt/apt.conf.d/dbdbdp.conf \
+              --mount=type=secret,id=APT_CONFIG \
               apt-get update -qq && \
               apt-get install -qq --no-install-recommends \
                 git=1:2.30.2-1 \
                 mercurial=5.6.1-4 \
-                git-lfs=2.13.2-1+b2 && \
+                git-lfs=2.13.2-1+b4 && \
               apt-get -qq autoremove      && \
               apt-get -qq clean           && \
               rm -rf /var/lib/apt/lists/* && \
               rm -rf /tmp/*               && \
               rm -rf /var/tmp/*
 
+# 2.13.2-1
 #                bzr=2.7.0+bzr6622-15 \
 #                subversion=1.10.4-1+deb10u1 && \
 
 # XXX doesn't work?
 # ENV GOROOT=/tmp/go
 #RUN           ln -s /boot/bin/go /usr/local/go
-ENV GOROOT=/boot/bin/go
-ENV PATH=$GOROOT/bin:$PATH
+ENV           GOROOT=/boot/bin/go
+ENV           PATH=$GOROOT/bin:$PATH
 
 USER          dubo-dubon-duponey
 
@@ -174,6 +132,8 @@ ENV           LOG_LEVEL="warn"
 ENV           DOMAIN="go.local"
 # Control wether tls is going to be "internal" (eg: self-signed), or alternatively an email address to enable letsencrypt
 ENV           TLS="internal"
+# Either require_and_verify or verify_if_given
+ENV           MTLS_MODE="verify_if_given"
 
 # Realm in case access is authenticated
 ENV           REALM="My Precious Realm"
