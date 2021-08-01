@@ -1,13 +1,13 @@
 ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
 
-ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-07-01@sha256:dbe45d04091f027b371e1bd4ea994f095a8b2ebbdd89357c56638fb678218151
-ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-07-01@sha256:63060b5109c4d8be7a8b4f97e3bb7431781c07b3b46263e372ab37fb8aae7583
-ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-07-01@sha256:188493744d1b858e0d99efc250b8b78852ddb3fe50eb63d46f41ee20680c14eb
+ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-07-01@sha256:f1c46316c38cc1ca54fd53b54b73797b35ba65ee727beea1a5ed08d0ad7e8ccf
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-07-01@sha256:9f5b20d392e1a1082799b3befddca68cee2636c72c502aa7652d160896f85b36
+ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-07-01@sha256:f1e25694fe933c7970773cb323975bb5c995fa91d0c1a148f4f1c131cbc5872c
 
 FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
 # one time warcrime... XXX the reason for this is that our builder image is not portable
-FROM          $FROM_REGISTRY/base:golang-bullseye-2021-07-01                                                            AS builder-go
+FROM          $FROM_REGISTRY/base:golang-bullseye-2021-07-01@sha256:69eb1f3f0ccd9e4aadac0ab51b536379d4aed6a28488f526a40c535e06fbfbf6 AS builder-go
 RUN           mkdir -p /dist/boot/bin; cp -R "$GOROOT" /dist/boot/bin/go
 
 #######################
@@ -80,7 +80,7 @@ COPY          --from=builder-tools  /boot/bin/http-health    /dist/boot/bin
 
 RUN           chmod 555 /dist/boot/bin/*; \
               epoch="$(date --date "$BUILD_CREATED" +%s)"; \
-              find /dist/boot/bin -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
+              find /dist/boot -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
 
 #######################
 # Running image
@@ -117,8 +117,12 @@ RUN           --mount=type=secret,uid=100,id=CA \
 #RUN           ln -s /boot/bin/go /usr/local/go
 ENV           GOROOT=/boot/bin/go
 ENV           PATH=$GOROOT/bin:$PATH
+# Athens specific config
+ENV           GO111MODULE="on"
 
 USER          dubo-dubon-duponey
+
+ENV           NICK="go"
 
 COPY          --from=builder --chown=$BUILD_UID:root /dist /
 
@@ -129,7 +133,7 @@ EXPOSE        4443
 # Log verbosity for
 ENV           LOG_LEVEL="warn"
 # Domain name to serve
-ENV           DOMAIN="go.local"
+ENV           DOMAIN="$NICK.local"
 # Control wether tls is going to be "internal" (eg: self-signed), or alternatively an email address to enable letsencrypt
 ENV           TLS="internal"
 # Either require_and_verify or verify_if_given
@@ -145,14 +149,11 @@ ENV           PASSWORD=""
 # Enable/disable mDNS support
 ENV           MDNS_ENABLED=false
 # Name is used as a short description for the service
-ENV           MDNS_NAME="Athens mDNS display name"
+ENV           MDNS_NAME="mDNS display name"
 # The service will be annonced and reachable at $MDNS_HOST.local
-ENV           MDNS_HOST="go"
+ENV           MDNS_HOST="$NICK"
 # Type to advertise
 ENV           MDNS_TYPE="_http._tcp"
-
-# Athens specific config
-ENV           GO111MODULE="on"
 
 # Caddy certs will be stored here
 VOLUME        /certs
@@ -160,7 +161,7 @@ VOLUME        /certs
 # Caddy uses this
 VOLUME        /tmp
 
-# Athens cache will be stored there
+# Used by the backend service
 VOLUME        /data
 
 ENV           HEALTHCHECK_URL="http://127.0.0.1:10000/?healthcheck"
