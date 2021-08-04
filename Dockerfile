@@ -1,13 +1,13 @@
 ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
 
-ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-07-01@sha256:f1c46316c38cc1ca54fd53b54b73797b35ba65ee727beea1a5ed08d0ad7e8ccf
-ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-07-01@sha256:9f5b20d392e1a1082799b3befddca68cee2636c72c502aa7652d160896f85b36
-ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-07-01@sha256:f1e25694fe933c7970773cb323975bb5c995fa91d0c1a148f4f1c131cbc5872c
+ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-08-01@sha256:f492d8441ddd82cad64889d44fa67cdf3f058ca44ab896de436575045a59604c
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-08-01@sha256:edc80b2c8fd94647f793cbcb7125c87e8db2424f16b9fd0b8e173af850932b48
+ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-07-01@sha256:87ec12fe94a58ccc95610ee826f79b6e57bcfd91aaeb4b716b0548ab7b2408a7
 
 FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
 # one time warcrime... XXX the reason for this is that our builder image is not portable
-FROM          $FROM_REGISTRY/base:golang-bullseye-2021-07-01@sha256:69eb1f3f0ccd9e4aadac0ab51b536379d4aed6a28488f526a40c535e06fbfbf6 AS builder-go
+FROM          $FROM_REGISTRY/base:golang-bullseye-2021-08-01@sha256:820caa12223eb2f1329736bcba8f1ac96a8ab7db37370cbe517dbd1d9f6ca606 AS builder-go
 RUN           mkdir -p /dist/boot/bin; cp -R "$GOROOT" /dist/boot/bin/go
 
 #######################
@@ -101,7 +101,7 @@ RUN           --mount=type=secret,uid=100,id=CA \
               apt-get install -qq --no-install-recommends \
                 git=1:2.30.2-1 \
                 mercurial=5.6.1-4 \
-                git-lfs=2.13.2-1+b4 && \
+                git-lfs=2.13.2-1+b5 && \
               apt-get -qq autoremove      && \
               apt-get -qq clean           && \
               rm -rf /var/lib/apt/lists/* && \
@@ -129,27 +129,41 @@ COPY          --from=builder --chown=$BUILD_UID:root /dist /
 ### Front server configuration
 # Port to use
 ENV           PORT=4443
+ENV           PORT_HTTP=80
 EXPOSE        4443
+EXPOSE        80
 # Log verbosity for
 ENV           LOG_LEVEL="warn"
 # Domain name to serve
 ENV           DOMAIN="$NICK.local"
+ENV           ADDITIONAL_DOMAINS="https://*.debian.org"
+
+# Whether the server should behave as a proxy (disallows mTLS)
+ENV           SERVER_NAME="DuboDubonDuponey/1.0 (Caddy/2) [$NICK]"
+
 # Control wether tls is going to be "internal" (eg: self-signed), or alternatively an email address to enable letsencrypt
 ENV           TLS="internal"
+# 1.2 or 1.3
+ENV           TLS_MIN=1.2
 # Either require_and_verify or verify_if_given
-ENV           MTLS_MODE="verify_if_given"
+ENV           TLS_MTLS_MODE="verify_if_given"
+# Issuer name to appear in certificates
+ENV           TLS_ISSUER="Dubo Dubon Duponey"
+# Either disable_redirects or ignore_loaded_certs if one wants the redirects
+ENV           TLS_AUTO=disable_redirects
 
+ENV           AUTH_ENABLED=false
 # Realm in case access is authenticated
-ENV           REALM="My Precious Realm"
+ENV           AUTH_REALM="My Precious Realm"
 # Provide username and password here (call the container with the "hash" command to generate a properly encrypted password, otherwise, a random one will be generated)
-ENV           USERNAME=""
-ENV           PASSWORD=""
+ENV           AUTH_USERNAME="dubo-dubon-duponey"
+ENV           AUTH_PASSWORD="replace_me"
 
 ### mDNS broadcasting
 # Enable/disable mDNS support
 ENV           MDNS_ENABLED=false
 # Name is used as a short description for the service
-ENV           MDNS_NAME="mDNS display name"
+ENV           MDNS_NAME="$NICK mDNS display name"
 # The service will be annonced and reachable at $MDNS_HOST.local
 ENV           MDNS_HOST="$NICK"
 # Type to advertise
