@@ -62,6 +62,16 @@ GoBinaryEnvVars = ["GOPROXY=direct"]
 # Env override: ATHENS_GOGET_WORKERS
 GoGetWorkers = 10
 
+# GoGetDir specifies the temporary directory that Athens
+# will use to fetch modules from VCS prior to persisting
+# them to a storage backend. This is useful if you are in a
+# Kubernetes environment where a specific path is volumed into
+# a directory that has larger disk resources. If the value is
+# empty, Athens will use the default OS temporary directory.
+#
+# Env override: ATHENS_GOGOET_DIR
+GoGetDir = ""
+
 # ProtocolWorkers specifies how many concurrent
 # requests can you handle at a time for all
 # download protocol paths. This is different from
@@ -282,196 +292,264 @@ DownloadURL = ""
 # Env override: ATHENS_SINGLE_FLIGHT_TYPE
 SingleFlightType = "memory"
 
+# IndexType sets the type of an index backend Athens will use.
+# Possible values are none, memory, mysql, postgres
+# Defaults to none
+# Env override: ATHENS_INDEX_TYPE
+IndexType = "none"
+
 [SingleFlight]
-    [SingleFlight.Etcd]
-        # Endpoints are comma separated URLs that determine all distributed etcd servers.
-        # It defaults to what we have in our docker-compose file. It is by default ignored
-        # as the SingleFlightType field above determines whether Etcd is used or not.
-        # Env override: ATHENS_ETCD_ENDPOINTS
-        Endpoints = "localhost:2379,localhost:22379,localhost:32379"
-    [SingleFlight.Redis]
-        # Endpoint is the redis endpoint for a SingleFlight lock.
-        # TODO(marwan): enable multiple endpoints for redis clusters.
-        # Env override: ATHENS_REDIS_ENDPOINT
-        Endpoint = "127.0.0.1:6379"
-        # Password is the password for a redis SingleFlight lock.
-        # Env override: ATHENS_REDIS_PASSWORD
-        Password = ""
-    [SingleFlight.RedisSentinel]
-        # Endpoints is the redis sentinel endpoints to discover a redis
-        # master for a SingleFlight lock.
-        # Env override: ATHENS_REDIS_SENTINEL_ENDPOINTS
-        Endpoints = ["127.0.0.1:26379"]
-        # MasterName is the redis sentinel master name to use to discover
-        # the master for a SingleFlight lock
-        MasterName = "redis-1"
-        # SentinelPassword is an optional password for authenticating with
-        # redis sentinel
-        SentinelPassword = "sekret"
+[SingleFlight.Etcd]
+# Endpoints are comma separated URLs that determine all distributed etcd servers.
+# It defaults to what we have in our docker-compose file. It is by default ignored
+# as the SingleFlightType field above determines whether Etcd is used or not.
+# Env override: ATHENS_ETCD_ENDPOINTS
+Endpoints = "localhost:2379,localhost:22379,localhost:32379"
+[SingleFlight.Redis]
+# Endpoint is the redis endpoint for a SingleFlight lock.
+# TODO(marwan): enable multiple endpoints for redis clusters.
+# Env override: ATHENS_REDIS_ENDPOINT
+Endpoint = "127.0.0.1:6379"
+# Password is the password for a redis SingleFlight lock.
+# Env override: ATHENS_REDIS_PASSWORD
+Password = ""
+[SingleFlight.RedisSentinel]
+# Endpoints is the redis sentinel endpoints to discover a redis
+# master for a SingleFlight lock.
+# Env override: ATHENS_REDIS_SENTINEL_ENDPOINTS
+Endpoints = ["127.0.0.1:26379"]
+# MasterName is the redis sentinel master name to use to discover
+# the master for a SingleFlight lock
+MasterName = "redis-1"
+# SentinelPassword is an optional password for authenticating with
+# redis sentinel
+SentinelPassword = "sekret"
 
 [Storage]
-    # Only storage backends that are specified in Proxy.StorageType are required here
-    [Storage.CDN]
-        # Endpoint for CDN storage
-        # Env override: CDN_ENDPOINT
-        Endpoint = "cdn.example.com"
+# Only storage backends that are specified in Proxy.StorageType are required here
+[Storage.CDN]
+# Endpoint for CDN storage
+# Env override: CDN_ENDPOINT
+Endpoint = "cdn.example.com"
 
-    [Storage.Disk]
-        # RootPath is the Athens Disk Root folder
-        # Env override: ATHENS_DISK_STORAGE_ROOT
-        RootPath = "/path/on/disk"
+[Storage.Disk]
+# RootPath is the Athens Disk Root folder
+# Env override: ATHENS_DISK_STORAGE_ROOT
+RootPath = "/path/on/disk"
 
-    [Storage.GCP]
-        # Required IAM Roles (https://cloud.google.com/storage/docs/access-control/iam-roles):
-        # - roles/storage.objectCreator
-        # - roles/storage.objectViewer
-        # - roles/storage.legacyBucketReader
+[Storage.GCP]
+# Required IAM Roles (https://cloud.google.com/storage/docs/access-control/iam-roles):
+# - roles/storage.objectCreator
+# - roles/storage.objectViewer
+# - roles/storage.legacyBucketReader
 
-        # ProjectID to use for GCP Storage
-        # Env override: GOOGLE_CLOUD_PROJECT
-        ProjectID = "MY_GCP_PROJECT_ID"
+# ProjectID to use for GCP Storage
+# Env override: GOOGLE_CLOUD_PROJECT
+ProjectID = "MY_GCP_PROJECT_ID"
 
-        # Bucket to use for GCP Storage
-        # Env override: ATHENS_STORAGE_GCP_BUCKET
-        Bucket = "MY_GCP_BUCKET"
+# Bucket to use for GCP Storage
+# Env override: ATHENS_STORAGE_GCP_BUCKET
+Bucket = "MY_GCP_BUCKET"
 
-        # JSONKey is a base64 encoded service account
-        # key that allows Athens to be run outside of GCP
-        # but still be able to access GCS. If you are
-        # running Athens inside GCP, you will most
-        # likely not need this as GCP figures out
-        # internal authentication between products for you.
-        #
-        # Env override: ATHENS_STORAGE_GCP_JSON_KEY
-        JSONKey = ""
+# JSONKey is a base64 encoded service account
+# key that allows Athens to be run outside of GCP
+# but still be able to access GCS. This is not needed
+# when relying on default GCP authentication with
+# GOOGLE_APPLICATION_CREDENTIALS variable set up.
+# See https://cloud.google.com/docs/authentication/getting-started.
+#
+# Env override: ATHENS_STORAGE_GCP_JSON_KEY
+JSONKey = ""
 
-    [Storage.Minio]
-        # Endpoint for Minio storage
-        # Env override: ATHENS_MINIO_ENDPOINT
-        Endpoint = "127.0.0.1:9001"
+[Storage.Minio]
+# Endpoint for Minio storage
+# Env override: ATHENS_MINIO_ENDPOINT
+Endpoint = "127.0.0.1:9001"
 
-        # Access Key for Minio storage
-        # Env override: ATHENS_MINIO_ACCESS_KEY_ID
-        Key = "minio"
+# Access Key for Minio storage
+# Env override: ATHENS_MINIO_ACCESS_KEY_ID
+Key = "minio"
 
-        # Secret Key for Minio storage
-        # Env override: ATHENS_MINIO_SECRET_ACCESS_KEY
-        Secret = "minio123"
+# Secret Key for Minio storage
+# Env override: ATHENS_MINIO_SECRET_ACCESS_KEY
+Secret = "minio123"
 
-        # Enable SSL for Minio connections
-        # Defaults to true
-        # Env override: ATHENS_MINIO_USE_SSL
-        EnableSSL = false
+# Enable SSL for Minio connections
+# Defaults to true
+# Env override: ATHENS_MINIO_USE_SSL
+EnableSSL = false
 
-        # Minio Bucket to use for storage
-        # Defaults to gomods
-        # Env override: ATHENS_MINIO_BUCKET_NAME
-        Bucket = "gomods"
+# Minio Bucket to use for storage
+# Defaults to gomods
+# Env override: ATHENS_MINIO_BUCKET_NAME
+Bucket = "gomods"
 
-        # Region for Minio storage
-        # Env override: ATHENS_MINIO_REGION
-        Region = ""
+# Region for Minio storage
+# Env override: ATHENS_MINIO_REGION
+Region = ""
 
-    [Storage.Mongo]
-        # Full connection string for mongo storage
-        # Env override: ATHENS_MONGO_STORAGE_URL
-        URL = "mongodb://127.0.0.1:27017"
+[Storage.Mongo]
+# Full connection string for mongo storage
+# Env override: ATHENS_MONGO_STORAGE_URL
+URL = "mongodb://127.0.0.1:27017"
 
-        # Sets default database name for mongo storage if not set by URL
-        # Env override: ATHENS_MONGO_DEFAULT_DATABASE
-        DefaultDBName = "athens"
+# Sets default database name for mongo storage if not set by URL
+# Env override: ATHENS_MONGO_DEFAULT_DATABASE
+DefaultDBName = "athens"
 
-        # Path to certificate to use for the mongo connection
-        # Env override: ATHENS_MONGO_CERT_PATH
-        CertPath = ""
+# Path to certificate to use for the mongo connection
+# Env override: ATHENS_MONGO_CERT_PATH
+CertPath = ""
 
-        # Allows for insecure SSL / http connections to mongo storage
-        # Should be used for testing or development only
-        # Env override: ATHENS_MONGO_INSECURE
-        Insecure = false
+# Allows for insecure SSL / http connections to mongo storage
+# Should be used for testing or development only
+# Env override: ATHENS_MONGO_INSECURE
+Insecure = false
 
-    [Storage.S3]
-        ### The authentication model is as below for S3 in the following order
-        ### If AWS_CREDENTIALS_ENDPOINT is specified and it returns valid results, then it is used
-        ### If config variables are specified and they are valid, then they return valid results, then it is used
-        ### Otherwise, it will default to default configurations which is as follows
-        # attempt to find credentials in the environment, in the shared
-        # configuration (~/.aws/credentials) and from ec2 instance role
-        # credentials. See
-        # https://godoc.org/github.com/aws/aws-sdk-go#hdr-Configuring_Credentials
-        # and
-        # https://godoc.org/github.com/aws/aws-sdk-go/aws/session#hdr-Environment_Variables
-        # for environment variables that will affect the aws configuration.
-        # Setting UseDefaultConfiguration would only use default configuration. It will be deprecated in future releases
-        # and is recommended not to use it.
+[Storage.S3]
+### The authentication model is as below for S3 in the following order
+### If AWS_CREDENTIALS_ENDPOINT is specified and it returns valid results, then it is used
+### If config variables are specified and they are valid, then they return valid results, then it is used
+### Otherwise, it will default to default configurations which is as follows
+# attempt to find credentials in the environment, in the shared
+# configuration (~/.aws/credentials) and from ec2 instance role
+# credentials. See
+# https://godoc.org/github.com/aws/aws-sdk-go#hdr-Configuring_Credentials
+# and
+# https://godoc.org/github.com/aws/aws-sdk-go/aws/session#hdr-Environment_Variables
+# for environment variables that will affect the aws configuration.
+# Setting UseDefaultConfiguration would only use default configuration. It will be deprecated in future releases
+# and is recommended not to use it.
 
-        # Region for S3 storage
-        # Env override: AWS_REGION
-        Region = "MY_AWS_REGION"
+# Region for S3 storage
+# Env override: AWS_REGION
+Region = "MY_AWS_REGION"
 
-        # Access Key for S3 storage
-        # Env override: AWS_ACCESS_KEY_ID
-        Key = "MY_AWS_ACCESS_KEY_ID"
+# Access Key for S3 storage
+# Env override: AWS_ACCESS_KEY_ID
+Key = "MY_AWS_ACCESS_KEY_ID"
 
-        # Secret Key for S3 storage
-        # Env override: AWS_SECRET_ACCESS_KEY
-        Secret = "MY_AWS_SECRET_ACCESS_KEY"
+# Secret Key for S3 storage
+# Env override: AWS_SECRET_ACCESS_KEY
+Secret = "MY_AWS_SECRET_ACCESS_KEY"
 
-        # Session Token for S3 storage
-        # Env override: AWS_SESSION_TOKEN
-        Token = ""
+# Session Token for S3 storage
+# Env override: AWS_SESSION_TOKEN
+Token = ""
 
-        # S3 Bucket to use for storage
-        # Env override: ATHENS_S3_BUCKET_NAME
-        Bucket = "MY_S3_BUCKET_NAME"
+# S3 Bucket to use for storage
+# Env override: ATHENS_S3_BUCKET_NAME
+Bucket = "MY_S3_BUCKET_NAME"
 
-        # If true then path style url for s3 endpoint will be used
-        # Env override: AWS_FORCE_PATH_STYLE
-        ForcePathStyle = false
+# If true then path style url for s3 endpoint will be used
+# Env override: AWS_FORCE_PATH_STYLE
+ForcePathStyle = false
 
-        # If true then the default aws configuration will be used. This will
-        # attempt to find credentials in the environment, in the shared
-        # configuration (~/.aws/credentials) and from ec2 instance role
-        # credentials. See
-        # https://godoc.org/github.com/aws/aws-sdk-go#hdr-Configuring_Credentials
-        # and
-        # https://godoc.org/github.com/aws/aws-sdk-go/aws/session#hdr-Environment_Variables
-        # for environment variables that will affect the aws configuration.
-        UseDefaultConfiguration = false
+# If true then the default aws configuration will be used. This will
+# attempt to find credentials in the environment, in the shared
+# configuration (~/.aws/credentials) and from ec2 instance role
+# credentials. See
+# https://godoc.org/github.com/aws/aws-sdk-go#hdr-Configuring_Credentials
+# and
+# https://godoc.org/github.com/aws/aws-sdk-go/aws/session#hdr-Environment_Variables
+# for environment variables that will affect the aws configuration.
+UseDefaultConfiguration = false
 
-        # https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/endpointcreds/
-        CredentialsEndpoint = ""
+# https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/endpointcreds/
+CredentialsEndpoint = ""
 
-        # conainer relative url (used by fargate) /v2/....
-        # If this is present, it will concatenate to CredentialsEndpoint
-        # If you are planning to use AWS Fargate, please use http://169.254.170.2 for CredentialsEndpoint
-        # Ref: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint-v2.html
-        AwsContainerCredentialsRelativeURI = ""
+# conainer relative url (used by fargate) /v2/....
+# If this is present, it will concatenate to CredentialsEndpoint
+# If you are planning to use AWS Fargate, please use http://169.254.170.2 for CredentialsEndpoint
+# Ref: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint-v2.html
+AwsContainerCredentialsRelativeURI = ""
 
-        # An optional endpoint URL (hostname only or fully qualified URI)
-        # that overrides the default generated endpoint for S3 storage client.
-        #
-        # You must still provide a `Region` value when specifying an endpoint.
-        # Env override: AWS_ENDPOINT
-        Endpoint = ""
+# An optional endpoint URL (hostname only or fully qualified URI)
+# that overrides the default generated endpoint for S3 storage client.
+#
+# You must still provide a `Region` value when specifying an endpoint.
+# Env override: AWS_ENDPOINT
+Endpoint = ""
 
-   [Storage.AzureBlob]
-        # Storage Account name for Azure Blob
-        # Env override: ATHENS_AZURE_ACCOUNT_NAME
-        AccountName = "MY_AZURE_BLOB_ACCOUNT_NAME"
+[Storage.AzureBlob]
+# Storage Account name for Azure Blob
+# Env override: ATHENS_AZURE_ACCOUNT_NAME
+AccountName = "MY_AZURE_BLOB_ACCOUNT_NAME"
 
-        # Account Key to use with the storage account
-        # Env override: ATHENS_AZURE_ACCOUNT_KEY
-        AccountKey = "MY_AZURE_BLOB_ACCOUNT_KEY"
+# Account Key to use with the storage account
+# Env override: ATHENS_AZURE_ACCOUNT_KEY
+AccountKey = "MY_AZURE_BLOB_ACCOUNT_KEY"
 
-        # Name of container in the blob storage
-        # Env override: ATHENS_AZURE_CONTAINER_NAME
-        ContainerName = "MY_AZURE_BLOB_CONTAINER_NAME"
+# Name of container in the blob storage
+# Env override: ATHENS_AZURE_CONTAINER_NAME
+ContainerName = "MY_AZURE_BLOB_CONTAINER_NAME"
 
-   [Storage.External]
-        # URL is the external storage URL that Athens
-        # will use to interact with the backend storage layer.
-        # See https://docs.gomods.io/configuration/storage for implementation
-        # details.
-        # Env override: ATHENS_EXTERNAL_STORAGE_URL
-        URL = ""
+[Storage.External]
+# URL is the external storage URL that Athens
+# will use to interact with the backend storage layer.
+# See https://docs.gomods.io/configuration/storage for implementation
+# details.
+# Env override: ATHENS_EXTERNAL_STORAGE_URL
+URL = ""
+
+[Index]
+[Index.MySQL]
+# MySQL protocol
+# Env override: ATHENS_INDEX_MYSQL_PROTOCOL
+Protocol = "tcp"
+
+# MySQL user name
+# Env override: ATHENS_INDEX_MYSQL_HOST
+Host = "localhost"
+
+# MySQL user name
+# Env override: ATHENS_INDEX_MYSQL_PORT
+Port = 3306
+
+# MySQL user name
+# Env override: ATHENS_INDEX_MYSQL_USER
+User = "root"
+
+# MySQL user name
+# Env override: ATHENS_INDEX_MYSQL_PASSWORD
+Password = ""
+
+# MySQL database
+# Env override: ATHENS_INDEX_MYSQL_DATABASE
+Database = "athens"
+
+# MySQL query parameters
+# Environment overrides must be in the following format:
+# ATHENS_INDEX_MYSQL_PARAMS="parseTime:true,timeout=90s"
+# Env override: ATHENS_INDEX_MYSQL_PARAMS
+[Index.MySQL.Params]
+parseTime = "true"
+timeout = "30s"
+[Index.Postgres]
+# Postgres user name
+# Env override: ATHENS_INDEX_POSTGRES_HOST
+Host = "localhost"
+
+# Postgres user name
+# Env override: ATHENS_INDEX_POSTGRES_PORT
+Port = 5432
+
+# Postgres user name
+# Env override: ATHENS_INDEX_POSTGRES_USER
+User = "postgres"
+
+# Postgres user name
+# Env override: ATHENS_INDEX_POSTGRES_PASSWORD
+Password = ""
+
+# Postgres database
+# Env override: ATHENS_INDEX_POSTGRES_DATABASE
+Database = "athens"
+
+# Postgres query parameters
+# Environment overrides must be in the following format:
+# ATHENS_INDEX_POSTGRES_PARAMS="connect_timeout:30s,sslmode=disable"
+# Env override: ATHENS_INDEX_POSTGRES_PARAMS
+[Index.Postgres.Params]
+connect_timeout = "30s"
+sslmode = "disable"

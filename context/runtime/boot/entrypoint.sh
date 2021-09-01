@@ -1,23 +1,75 @@
 #!/usr/bin/env bash
 set -o errexit -o errtrace -o functrace -o nounset -o pipefail
 
-# Ensure the certs folder is writable
-[ -w "/tmp" ] || {
-  >&2 printf "/tmp is not writable. Check your mount permissions.\n"
+[ -w /certs ] || {
+  printf >&2 "/certs is not writable. Check your mount permissions.\n"
   exit 1
 }
 
-# Ensure the tmp go folder is here
-mkdir -p /tmp/go
-[ ! "$ATHENS_DISK_STORAGE_ROOT" ] || mkdir -p "$ATHENS_DISK_STORAGE_ROOT"
+[ -w /tmp ] || {
+  printf >&2 "/tmp is not writable. Check your mount permissions.\n"
+  exit 1
+}
 
-# Bonjour the container
-if [ "${MDNS_NAME:-}" ]; then
-  goello-server -name "$MDNS_NAME" -host "$MDNS_HOST" -port "$PORT" -type "$MDNS_TYPE" &
-fi
+[ -w /data ] || {
+  printf >&2 "/data is not writable. Check your mount permissions.\n"
+  exit 1
+}
 
-BASIC_AUTH_USER="${USERNAME:-}"
-BASIC_AUTH_PASS="${PASSWORD:-}"
+# Helpers
+case "${1:-run}" in
+  # Short hand helper to generate password hash
+  "hash")
+    shift
+    printf >&2 "Generating password hash\n"
+    caddy hash-password -algorithm bcrypt "$@"
+    exit
+  ;;
+  # Helper to get the ca.crt out (once initialized)
+  "cert")
+    if [ "${TLS:-}" == "" ]; then
+      printf >&2 "Your container is not configured for TLS termination - there is no local CA in that case."
+      exit 1
+    fi
+    if [ "${TLS:-}" != "internal" ]; then
+      printf >&2 "Your container uses letsencrypt - there is no local CA in that case."
+      exit 1
+    fi
+    if [ ! -e /certs/pki/authorities/local/root.crt ]; then
+      printf >&2 "No root certificate installed or generated. Run the container so that a cert is generated, or provide one at runtime."
+      exit 1
+    fi
+    cat /certs/pki/authorities/local/root.crt
+    exit
+  ;;
+  "run")
+    # Bonjour the container if asked to. While the PORT is no guaranteed to be mapped on the host in bridge, this does not matter since mDNS will not work at all in bridge mode.
+    if [ "${MDNS_ENABLED:-}" == true ]; then
+      goello-server -json "$(printf '[{"Type": "%s", "Name": "%s", "Host": "%s", "Port": %s, "Text": {}}]' "$MDNS_TYPE" "$MDNS_NAME" "$MDNS_HOST" "$PORT")" &
+    fi
+
+    # If we want TLS and authentication, start caddy in the background
+    if [ "${TLS:-}" ]; then
+      HOME=/tmp/caddy-home caddy run -config /config/caddy/main.conf --adapter caddyfile &
+    fi
+  ;;
+esac
 
 # Get athens started
-exec athens-proxy -config_file /config/config.toml "$@"
+
+# Ensure the tmp go folder is here
+mkdir -p /tmp/go
+
+# Careful, it uses the PORT env variable to override its default, so blank it out
+export PORT=""
+# Forward log_level
+export ATHENS_LOG_LEVEL=${LOG_LEVEL:-warn}
+# Maybe this should be more flexible?
+export ATHENS_INDEX_TYPE="memory"
+# The rest is fine
+export ATHENS_STORAGE_TYPE=disk
+export ATHENS_PORT=":42042"
+export ATHENS_DISK_STORAGE_ROOT=/data
+export ATHENS_GOGOET_DIR=/tmp/go
+
+exec athens-proxy -config_file /config/athens/main.toml "$@"

@@ -7,27 +7,30 @@ This is based on [Athens](https://github.com/gomods/athens).
 ## Image features
 
  * multi-architecture:
-    * [x] linux/amd64
-    * [x] linux/arm64
-    * [x] linux/arm/v7
-    * [ ] linux/arm/v6 (should build, disabled by default)
+   * [x] linux/amd64
+   * [x] linux/386
+   * [x] linux/arm64
+   * [x] linux/arm/v7
+   * [x] linux/arm/v6
+   * [x] linux/ppc64le
+   * [x] linux/s390x
  * hardened:
-    * [x] image runs read-only
-    * [x] image runs with no capabilities
-    * [x] process runs as a non-root user, disabled login, no shell
+   * [x] image runs read-only
+   * [x] image runs with no capabilities
+   * [x] process runs as a non-root user, disabled login, no shell
  * lightweight
-    * [x] based on our slim [Debian buster version](https://github.com/dubo-dubon-duponey/docker-debian)
-    * [x] simple entrypoint script
-    * [ ] multi-stage build with ~~no installed~~ dependencies for the runtime image:
-        * git
-        * git-lfs
-        * bzr
-        * subversion
-        * mercurial
+   * [x] based on our slim [Debian Bullseye](https://github.com/dubo-dubon-duponey/docker-debian)
+   * [x] simple entrypoint script
+   * [ ] multi-stage build with ~~no installed~~ dependencies for the runtime image:
+     * git
+     * git-lfs
+     * bzr
+     * subversion
+     * mercurial
  * observable
-    * [x] healthcheck
-    * [x] log to stdout
-    * [ ] ~~prometheus endpoint~~ (TODO)
+   * [x] healthcheck
+   * [x] log to stdout
+   * [ ] ~~prometheus endpoint~~ (TODO)
 
 ## Run
 
@@ -41,7 +44,7 @@ docker run -d \
     --publish 3000:3000/tcp \
     --cap-drop ALL \
     --read-only \
-    dubodubonduponey/goproxy
+    ghcr.io/dubo-dubon-duponey/go-proxy
 ```
 
 ## Notes
