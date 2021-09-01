@@ -44,7 +44,7 @@ docker run -d \
     --publish 3000:3000/tcp \
     --cap-drop ALL \
     --read-only \
-    dubodubonduponey/goproxy
+    ghcr.io/dubo-dubon-duponey/go-proxy
 ```
 
 ## Notes

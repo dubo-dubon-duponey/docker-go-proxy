@@ -29,13 +29,13 @@ cakes: {
 
 			output: {
 				images: {
-					names: [...string] | * ["goproxy"],
+					names: [...string] | * ["go-proxy"],
 					tags: [...string] | * ["latest"]
 				}
 			}
 
 			metadata: {
-				title: string | * "Dubo Athens",
+				title: string | * "Dubo Go Proxy",
 				description: string | * "A dubo image for Athens",
 			}
 		}
