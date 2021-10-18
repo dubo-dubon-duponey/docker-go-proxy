@@ -39,10 +39,11 @@ This is based on [Athens](https://github.com/gomods/athens).
 docker run -d \
     --volume somewhere:/tmp/athens \
     --env ATHENS_DISK_STORAGE_ROOT=/tmp/athens \
-    --env PORT=:3000 \
+    --env PORT=:443 \
     --env ATHENS_STORAGE_TYPE=disk \
-    --publish 3000:3000/tcp \
+    --publish 443:443/tcp \
     --cap-drop ALL \
+    --cap-add NET_BIND_SERVICE \
     --read-only \
     ghcr.io/dubo-dubon-duponey/go-proxy
 ```
