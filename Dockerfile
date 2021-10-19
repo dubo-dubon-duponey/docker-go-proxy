@@ -66,7 +66,7 @@ RUN           export GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)"; \
 #######################
 # Builder assembly
 #######################
-FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_AUDITOR                                              AS builder
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_AUDITOR                                              AS assembly
 
 COPY          --from=builder-main   /dist/boot    /dist/boot
 COPY          --from=builder-go     /dist/boot    /dist/boot
@@ -123,7 +123,7 @@ USER          dubo-dubon-duponey
 
 ENV           NICK="go"
 
-COPY          --from=builder --chown=$BUILD_UID:root /dist /
+COPY          --from=assembly --chown=$BUILD_UID:root /dist /
 
 ### Front server configuration
 # Port to use
@@ -170,7 +170,6 @@ VOLUME        /certs
 VOLUME        /tmp
 # Used by the backend service
 VOLUME        /data
-
 ENV           HEALTHCHECK_URL="http://127.0.0.1:10000/?healthcheck"
 
 HEALTHCHECK   --interval=120s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
