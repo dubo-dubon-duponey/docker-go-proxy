@@ -45,7 +45,7 @@ docker run -d \
     --cap-drop ALL \
     --cap-add NET_BIND_SERVICE \
     --read-only \
-    ghcr.io/dubo-dubon-duponey/go-proxy
+    index.docker.io/dubodubonduponey/go-proxy
 ```
 
 ## Notes
