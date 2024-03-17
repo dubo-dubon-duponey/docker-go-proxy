@@ -8,29 +8,19 @@ This is based on [Athens](https://github.com/gomods/athens).
 
  * multi-architecture:
    * [x] linux/amd64
-   * [x] linux/386
    * [x] linux/arm64
-   * [x] linux/arm/v7
-   * [x] linux/arm/v6
-   * [x] linux/ppc64le
-   * [x] linux/s390x
  * hardened:
    * [x] image runs read-only
    * [x] image runs with no capabilities
    * [x] process runs as a non-root user, disabled login, no shell
  * lightweight
-   * [x] based on our slim [Debian Bullseye](https://github.com/dubo-dubon-duponey/docker-debian)
+   * [x] based on our slim [Debian Bookworm](https://github.com/dubo-dubon-duponey/docker-debian)
    * [x] simple entrypoint script
-   * [ ] multi-stage build with ~~no installed~~ dependencies for the runtime image:
-     * git
-     * git-lfs
-     * bzr
-     * subversion
-     * mercurial
+   * [ ] multi-stage build with ~~zero packages~~ `git`, `git-lfs`, `bzr`, `subversion`, `mercurial` installed in the runtime image
  * observable
    * [x] healthcheck
    * [x] log to stdout
-   * [ ] ~~prometheus endpoint~~ (TODO)
+   * [ ] ~~prometheus endpoint~~
 
 ## Run
 
@@ -45,7 +35,7 @@ docker run -d \
     --cap-drop ALL \
     --cap-add NET_BIND_SERVICE \
     --read-only \
-    index.docker.io/dubodubonduponey/go-proxy
+    docker.io/dubodubonduponey/go-proxy
 ```
 
 ## Notes

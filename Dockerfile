@@ -1,14 +1,14 @@
-ARG           FROM_REGISTRY=index.docker.io/dubodubonduponey
+ARG           FROM_REGISTRY=docker.io/dubodubonduponey
 
-ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2022-08-01
-ARG           FROM_IMAGE_AUDITOR=base:auditor-bullseye-2022-08-01
-ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2022-08-01
-ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2022-08-01
+ARG           FROM_IMAGE_BUILDER=base:builder-bookworm-2024-03-01
+ARG           FROM_IMAGE_AUDITOR=base:auditor-bookworm-2024-03-01
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bookworm-2024-03-01
+ARG           FROM_IMAGE_TOOLS=tools:linux-bookworm-2024-03-01
 
 FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
 # one time warcrime... XXX the reason for this is that our builder image is not portable
-FROM          $FROM_REGISTRY/base:golang-bullseye-2022-08-01 AS builder-go
+FROM          $FROM_REGISTRY/base:golang-bookworm-2024-03-01 AS builder-go
 RUN           mkdir -p /dist/boot/bin; cp -R "$GOROOT" /dist/boot/bin/go
 
 #######################
@@ -17,8 +17,8 @@ RUN           mkdir -p /dist/boot/bin; cp -R "$GOROOT" /dist/boot/bin/go
 FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS fetcher-main
 
 ARG           GIT_REPO=github.com/gomods/athens
-ARG           GIT_VERSION=v0.11.0
-ARG           GIT_COMMIT=c3020955d204693ae22d26344a700ae5ccf4b754
+ARG           GIT_VERSION=v0.13.1
+ARG           GIT_COMMIT=2ac4289974d0c54fcc76dd3b473fa2129045128b
 
 ENV           WITH_BUILD_SOURCE="./cmd/proxy"
 ENV           WITH_BUILD_OUTPUT="athens-proxy"
@@ -105,9 +105,9 @@ RUN           --mount=type=secret,uid=100,id=CA \
               --mount=type=secret,id=APT_CONFIG \
               apt-get update -qq && \
               apt-get install -qq --no-install-recommends \
-                git=1:2.30.2-1 \
-                mercurial=5.6.1-4 \
-                git-lfs=2.13.2-1+b5 && \
+                git=1:2.39.2-1.1 \
+                mercurial=6.3.2-1 \
+                git-lfs=3.3.0-1+b5 && \
               apt-get -qq autoremove      && \
               apt-get -qq clean           && \
               rm -rf /var/lib/apt/lists/* && \
@@ -143,9 +143,9 @@ EXPOSE        80
 # By default, tls should be restricted to 1.3 - you may downgrade to 1.2+ for compatibility with older clients (webdav client on macos, older browsers)
 ENV           ADVANCED_TLS_MIN=1.3
 # Name advertised by Caddy in the server http header
-ENV           ADVANCED_SERVER_NAME="DuboDubonDuponey/1.0 (Caddy/2) [$_SERVICE_NICK]"
+ENV           ADVANCED_SERVER_NAME="DuboDubonDuponey/1.0 (Caddy/2)"
 # Root certificate to trust for mTLS - this is not used if MTLS is disabled
-ENV           ADVANCED_MTLS_TRUST="/certs/mtls_ca.crt"
+ENV           ADVANCED_MTLS_TRUST="/certs/pki/authorities/local/root.crt"
 # Log verbosity for
 ENV           LOG_LEVEL="warn"
 # Whether to start caddy at all or not
@@ -167,7 +167,7 @@ ENV           TLS_AUTO=disable_redirects
 # https://pki.local
 ENV           TLS_SERVER="https://acme-v02.api.letsencrypt.org/directory"
 # Either require_and_verify or verify_if_given, or "" to disable mTLS altogether
-ENV           MTLS="require_and_verify"
+ENV           MTLS_MODE="require_and_verify"
 # Realm for authentication - set to "" to disable authentication entirely
 ENV           AUTH="My Precious Realm"
 # Provide username and password here (call the container with the "hash" command to generate a properly encrypted password, otherwise, a random one will be generated)
@@ -175,15 +175,15 @@ ENV           AUTH_USERNAME="dubo-dubon-duponey"
 ENV           AUTH_PASSWORD="cmVwbGFjZV9tZV93aXRoX3NvbWV0aGluZwo="
 ### mDNS broadcasting
 # Whether to enable MDNS broadcasting or not
-ENV           MDNS_ENABLED=true
+ENV           MOD_MDNS_ENABLED=true
 # Type to advertise
-ENV           MDNS_TYPE="_$_SERVICE_TYPE._tcp"
+ENV           MOD_MDNS_TYPE="_$_SERVICE_TYPE._tcp"
 # Name is used as a short description for the service
-ENV           MDNS_NAME="$_SERVICE_NICK mDNS display name"
-# The service will be annonced and reachable at $MDNS_HOST.local (set to empty string to disable mDNS announces entirely)
-ENV           MDNS_HOST="$_SERVICE_NICK"
+ENV           MOD_MDNS_NAME="$_SERVICE_NICK mDNS display name"
+# The service will be annonced and reachable at $MOD_MDNS_HOST.local (set to empty string to disable mDNS announces entirely)
+ENV           MOD_MDNS_HOST="$_SERVICE_NICK"
 # Also announce the service as a workstation (for example for the benefit of coreDNS mDNS)
-ENV           MDNS_STATION=true
+ENV           ADVANCED_MOD_MDNS_STATION=true
 # Caddy certs will be stored here
 VOLUME        /certs
 # Caddy uses this
