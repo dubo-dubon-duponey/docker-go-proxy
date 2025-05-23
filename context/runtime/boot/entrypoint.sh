@@ -10,7 +10,6 @@ readonly root
 
 helpers::dir::writable "/certs"
 helpers::dir::writable "$XDG_DATA_HOME" create
-helpers::dir::writable "$XDG_DATA_DIRS" create
 helpers::dir::writable "$XDG_RUNTIME_DIR" create
 helpers::dir::writable "$XDG_STATE_HOME" create
 helpers::dir::writable "$XDG_CACHE_HOME" create
@@ -61,7 +60,7 @@ export ATHENS_INDEX_TYPE="memory"
 # The rest is fine
 export ATHENS_STORAGE_TYPE=disk
 export ATHENS_PORT=":10042"
-export ATHENS_DISK_STORAGE_ROOT=/data
-export ATHENS_GOGOET_DIR=/tmp/go
+export ATHENS_DISK_STORAGE_ROOT="$XDG_DATA_HOME"
+export ATHENS_GOGOET_DIR="$XDG_STATE_HOME"
 
-exec athens-proxy -config_file /config/athens/main.toml "$@"
+exec athens-proxy -config_file "$XDG_CONFIG_DIRS"/athens/main.toml "$@"

@@ -1,14 +1,14 @@
 ARG           FROM_REGISTRY=docker.io/dubodubonduponey
 
-ARG           FROM_IMAGE_BUILDER=base:builder-bookworm-2024-03-01
-ARG           FROM_IMAGE_AUDITOR=base:auditor-bookworm-2024-03-01
-ARG           FROM_IMAGE_RUNTIME=base:runtime-bookworm-2024-03-01
-ARG           FROM_IMAGE_TOOLS=tools:linux-bookworm-2024-03-01
+ARG           FROM_IMAGE_BUILDER=base:builder-bookworm-2025-05-01
+ARG           FROM_IMAGE_AUDITOR=base:auditor-bookworm-2025-05-01
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bookworm-2025-05-01
+ARG           FROM_IMAGE_TOOLS=tools:linux-bookworm-2025-05-01
 
 FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
 # one time warcrime... XXX the reason for this is that our builder image is not portable
-FROM          $FROM_REGISTRY/base:golang-bookworm-2024-03-01 AS builder-go
+FROM          $FROM_REGISTRY/base:golang-bookworm-2025-05-01 AS builder-go
 RUN           mkdir -p /dist/boot/bin; cp -R "$GOROOT" /dist/boot/bin/go
 
 #######################
@@ -17,8 +17,8 @@ RUN           mkdir -p /dist/boot/bin; cp -R "$GOROOT" /dist/boot/bin/go
 FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS fetcher-main
 
 ARG           GIT_REPO=github.com/gomods/athens
-ARG           GIT_VERSION=v0.13.1
-ARG           GIT_COMMIT=2ac4289974d0c54fcc76dd3b473fa2129045128b
+ARG           GIT_VERSION=v0.16.0
+ARG           GIT_COMMIT=b3385594448597a89ef9b186d7e59bedd778c683
 
 ENV           WITH_BUILD_SOURCE="./cmd/proxy"
 ENV           WITH_BUILD_OUTPUT="athens-proxy"
@@ -104,9 +104,9 @@ RUN           --mount=type=secret,uid=100,id=CA \
               --mount=type=secret,id=APT_CONFIG \
               apt-get update -qq && \
               apt-get install -qq --no-install-recommends \
-                git=1:2.39.2-1.1 \
-                mercurial=6.3.2-1 \
-                git-lfs=3.3.0-1+b5 && \
+                git=1:2.39.5-0+deb12u2 \
+                mercurial=6.3.2-1+deb12u1 \
+                git-lfs=3.3.0-1+deb12u1 && \
               apt-get -qq autoremove      && \
               apt-get -qq clean           && \
               rm -rf /var/lib/apt/lists/* && \
@@ -215,12 +215,8 @@ ENV           ADVANCED_MOD_HTTP_ADDITIONAL_DOMAINS=""
 EXPOSE        443
 EXPOSE        80
 
-# Caddy certs will be stored here
-VOLUME        /certs
-# Caddy uses this
-VOLUME        /tmp
-# Used by the backend service
-VOLUME        /data
+VOLUME        "$XDG_STATE_HOME"
+VOLUME        "$XDG_DATA_HOME"
 
 ENV           HEALTHCHECK_URL="http://127.0.0.1:10000/?healthcheck"
 
